@@ -3,9 +3,17 @@ from telegram.ext import Application, CommandHandler, CallbackQueryHandler, Mess
 import asyncio
 import nest_asyncio
 
+# Apply nest_asyncio to avoid issues with event loops in certain environments.
 nest_asyncio.apply()
 
-# Función para mostrar las opciones de selección
+# Function: start
+# Summary:
+#   Sends a menu with options as inline buttons when the user interacts with the bot.
+# Parameters:
+#   update (Update): Contains information about the incoming update (such as the message and user).
+#   context: Contains information and data related to the conversation, like bot details.
+# Remarks:
+#   Displays four options for the user to choose from and replies with a menu using InlineKeyboardMarkup.
 async def start(update: Update, context):
     keyboard = [
         [InlineKeyboardButton("Obtener enlace al GIEP", callback_data='1')],
@@ -16,51 +24,94 @@ async def start(update: Update, context):
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text('Selecciona una pregunta usando el menú:', reply_markup=reply_markup)
 
-# Función que maneja las respuestas del usuario
+
+
 async def button(update: Update, context):
     query = update.callback_query
     await query.answer()
 
-    # Responder según la opción seleccionada
-    if query.data == '1':
-        await query.edit_message_text(text="Enlace al GIEP: https://www.giep-platform.pafar.com.ve")
-    elif query.data == '2':
-        await query.edit_message_text(text="Las personas que se encuentran de vacaciones tienen una semana para entregar sus actividades, después de integrarse de manera física a Movilnet.")
-    elif query.data == '3':
-        await query.edit_message_text(text="Los nuevos e-books se publican cada 2 semanas después de la entrega, es decir, 15 días o 10 días hábiles.")
-    elif query.data == '4':
-        await query.edit_message_text(text="En los grupos de Telegram y en los correos corporativos (@movilnet.com.ve).")
+    # Dictionary to map callback data to questions with bold text
+    questions = {
+        '1': "<b>Has seleccionado: Obtener enlace al GIEP</b>",
+        '2': "<b>Has seleccionado: Si estoy de vacaciones, ¿cuándo entrego mis tareas?</b>",
+        '3': "<b>Has seleccionado: ¿Cuándo se publican los nuevos e-books?</b>",
+        '4': "<b>Has seleccionado: ¿En qué parte del telegram se encuentran los e-books?</b>"
+    }
 
-# Función que muestra el menú si es el primer mensaje
+    # Dictionary to map callback data to answers
+    answers = {
+        '1': "Enlace al GIEP: https://www.giep-platform.pafar.com.ve",
+        '2': "Las personas que se encuentran de vacaciones tienen una semana para entregar sus actividades, después de integrarse de manera física a Movilnet.",
+        '3': "Los nuevos e-books se publican cada 2 semanas después de la entrega, es decir, 15 días o 10 días hábiles.",
+        '4': "En los grupos de Telegram y en los correos corporativos (@movilnet.com.ve)."
+    }
+
+    # Get the question and answer based on the selected option
+    question_selected = questions.get(query.data, "Opción no válida")
+    answer = answers.get(query.data, "No hay respuesta para esta opción")
+
+    # Send both the question and answer in the same message using HTML
+    await query.edit_message_text(text=f"{question_selected}\n{answer}", parse_mode="HTML")
+
+    # Show the menu again after responding
+    keyboard = [
+        [InlineKeyboardButton("Obtener enlace al GIEP", callback_data='1')],
+        [InlineKeyboardButton("Si estoy de vacaciones, ¿cuándo entrego mis tareas?", callback_data='2')],
+        [InlineKeyboardButton("¿Cuándo se publican los nuevos e-books?", callback_data='3')],
+        [InlineKeyboardButton("¿En qué parte del telegram se encuentran los e-books?", callback_data='4')],
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
+    # Send the menu again after showing the answer
+    await query.message.reply_text('Selecciona otra pregunta usando el menú:', reply_markup=reply_markup)
+
+
+
+
+# Function: show_menu_on_first_message
+# Summary:
+#   Automatically shows the menu when the user sends any message to the bot.
+# Parameters:
+#   update (Update): Contains details about the user's incoming message.
+#   context: Provides context about the conversation or interaction.
+# Remarks:
+#   This function acts like an auto-trigger to show the menu, simulating the /start command.
 async def show_menu_on_first_message(update: Update, context):
-    # Al recibir cualquier mensaje, muestra el menú como si fuera el comando /start
     await start(update, context)
 
-# Configuración del bot
+# Function: main
+# Summary:
+#   Configures and runs the Telegram bot using polling.
+# Remarks:
+#   The bot is set up with handlers for the /start command, button presses from the menu,
+#   and a fallback to show the menu when any message is received. It uses long polling to keep
+#   the bot responsive.
 async def main():
     application = Application.builder().token("7047103350:AAFyzHfZcG0DVxq515V77Vrnd1AeroG5adE").build()
 
-    # Comando /start para mostrar las preguntas
+    # Handle the /start command to show the menu
     application.add_handler(CommandHandler("start", start))
 
-    # Manejo de respuestas por botones
+    # Handle button clicks in the menu
     application.add_handler(CallbackQueryHandler(button))
 
-    # Mostrar automáticamente el menú al recibir el primer mensaje del usuario
+    # Automatically show the menu when the user sends a message
     application.add_handler(MessageHandler(filters.ALL, show_menu_on_first_message))
 
-    # Ejecutar el bot usando run_polling
+    # Start the bot using long polling
     await application.run_polling()
 
+# Entry point: Runs the bot using asyncio, ensuring that the event loop is properly handled.
 if __name__ == '__main__':
-    # Usar asyncio.run solo si el loop no está corriendo
     try:
         loop = asyncio.get_running_loop()
     except RuntimeError:
         loop = None
 
+    # If the event loop is already running, ensure future tasks are added to the loop
     if loop and loop.is_running():
-        print("El event loop ya está corriendo.")
-        asyncio.ensure_future(main())  # Usar ensure_future si ya hay un loop corriendo
+        print("The event loop is already running.")
+        asyncio.ensure_future(main())  # Use ensure_future if an event loop exists
     else:
+        # If no event loop exists, run the main function with asyncio
         asyncio.run(main())
