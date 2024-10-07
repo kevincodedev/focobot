@@ -15,6 +15,14 @@ nest_asyncio.apply()
 # Remarks:
 #   Displays four options for the user to choose from and replies with a menu using InlineKeyboardMarkup.
 async def start(update: Update, context):
+    # Check if the menu has already been sent to the user
+    user_data = context.user_data
+    if user_data.get('menu_active', False):
+        return  # Do nothing if the menu is already active
+
+    # Mark the menu as active for this user
+    user_data['menu_active'] = True
+
     keyboard = [
         [InlineKeyboardButton("Obtener enlace al GIEP", callback_data='1')],
         [InlineKeyboardButton("Si estoy de vacaciones, ¿cuándo entrego mis tareas?", callback_data='2')],
@@ -23,7 +31,6 @@ async def start(update: Update, context):
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text('Selecciona una pregunta usando el menú:', reply_markup=reply_markup)
-
 
 
 async def button(update: Update, context):
@@ -53,7 +60,7 @@ async def button(update: Update, context):
     # Send both the question and answer in the same message using HTML
     await query.edit_message_text(text=f"{question_selected}\n{answer}", parse_mode="HTML")
 
-    # Show the menu again after responding
+    # Mostrar el menú de nuevo tras responder
     keyboard = [
         [InlineKeyboardButton("Obtener enlace al GIEP", callback_data='1')],
         [InlineKeyboardButton("Si estoy de vacaciones, ¿cuándo entrego mis tareas?", callback_data='2')],
@@ -62,10 +69,11 @@ async def button(update: Update, context):
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
-    # Send the menu again after showing the answer
+    # Restablece la bandera para permitir que el menú vuelva a aparecer después de responder
+    context.user_data['menu_active'] = True
+
+    # Enviar el menú de nuevo
     await query.message.reply_text('Selecciona otra pregunta usando el menú:', reply_markup=reply_markup)
-
-
 
 
 # Function: show_menu_on_first_message
@@ -77,7 +85,9 @@ async def button(update: Update, context):
 # Remarks:
 #   This function acts like an auto-trigger to show the menu, simulating the /start command.
 async def show_menu_on_first_message(update: Update, context):
+    # Call start function if the menu is not already active
     await start(update, context)
+
 
 # Function: main
 # Summary:
@@ -100,6 +110,7 @@ async def main():
 
     # Start the bot using long polling
     await application.run_polling()
+
 
 # Entry point: Runs the bot using asyncio, ensuring that the event loop is properly handled.
 if __name__ == '__main__':
